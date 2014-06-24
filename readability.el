@@ -120,8 +120,9 @@ start oauth authorization via your default browser."
 
 (defun readability--json-buffer-serialize ()
   (goto-char (point-min))
-  (replace-string "\r" "")
-  (goto-char (point-min))
+  (save-excursion
+    (while (re-search-forward "\r" nil t)
+      (replace-match "")))
   (delete-region (point-min) (save-excursion (re-search-forward "\n\n")))
   (json-read-from-string (buffer-substring-no-properties (point-min) (point-max))))
 
@@ -212,52 +213,52 @@ start oauth authorization via your default browser."
              (let (($id (ov-val (ov-at) 'rdb-article-id)))
                (other-window 1)
                (readability--open-article $id)))))
-      (mapcar (lambda ($x)
-                (let* (($article  (assoc-default 'article  $x))
-                       ($favorite (assoc-default 'favorite $x))
-                       ($archive  (assoc-default 'archive  $x))
-                       ($bookmark-id (assoc-default 'id  $x))
-                       ($article-id  (assoc-default 'id $article)))
-                  (ov-keymap
-                   (ov-set (ov-insert "\uf005")
-                           'face (if (equal $favorite :json-false)
-                                     readability-icon-face-off
-                                   readability-icon-face-on)
-                           'rdb-bookmark-id $bookmark-id
-                           'rdb-fav (if (equal $favorite :json-false) nil t))
-                   "RET" (lambda () (interactive)
-                           (let* (($ov (ov-at))
-                                  ($id (ov-val $ov 'rdb-bookmark-id)))
-                             (readability--toggle-favorite-at $id $ov))))
-                  (insert " ")
-                  (ov-keymap
-                   (ov-set (ov-insert "\uf187")
-                           'face (if (equal $archive :json-false)
-                                     readability-icon-face-off
-                                   readability-icon-face-on)
-                           'rdb-bookmark-id $bookmark-id
-                           'rdb-fav (if (equal $favorite :json-false) nil t))
-                   "RET" (lambda () (interactive)
-                           (let* (($ov (ov-at))
-                                  ($id (ov-val $ov 'rdb-bookmark-id)))
-                             (readability--toggle-archive-at $id $ov))))
-                  (insert " ")
-                  (ov-keymap
-                   (ov-set (ov-insert (assoc-default 'title $article))
-                           'face '(:underline t)
-                           'rdb-article-id $article-id)
-                   "RET" (lambda () (interactive)
-                           (readability--open-article (ov-val (ov-at) 'rdb-article-id)))
-                   "o"   $fn-open-in-other-window
-                   "O"   $fn-open-in-other-window
-                   "C-o" (lambda () (interactive)
-                           (let (($id (ov-val (ov-at) 'rdb-article-id))
-                                 ($window (selected-window)))
-                             (other-window 1)
-                             (readability--open-article $id)
-                             (select-window $window))))
-                  (insert "\n")))
-              (assoc-default 'bookmarks $articles)))
+      (mapc (lambda ($x)
+              (let* (($article  (assoc-default 'article  $x))
+                     ($favorite (assoc-default 'favorite $x))
+                     ($archive  (assoc-default 'archive  $x))
+                     ($bookmark-id (assoc-default 'id  $x))
+                     ($article-id  (assoc-default 'id $article)))
+                (ov-keymap
+                 (ov-set (ov-insert "\uf005")
+                         'face (if (equal $favorite :json-false)
+                                   readability-icon-face-off
+                                 readability-icon-face-on)
+                         'rdb-bookmark-id $bookmark-id
+                         'rdb-fav (if (equal $favorite :json-false) nil t))
+                 "RET" (lambda () (interactive)
+                         (let* (($ov (ov-at))
+                                ($id (ov-val $ov 'rdb-bookmark-id)))
+                           (readability--toggle-favorite-at $id $ov))))
+                (insert " ")
+                (ov-keymap
+                 (ov-set (ov-insert "\uf187")
+                         'face (if (equal $archive :json-false)
+                                   readability-icon-face-off
+                                 readability-icon-face-on)
+                         'rdb-bookmark-id $bookmark-id
+                         'rdb-fav (if (equal $favorite :json-false) nil t))
+                 "RET" (lambda () (interactive)
+                         (let* (($ov (ov-at))
+                                ($id (ov-val $ov 'rdb-bookmark-id)))
+                           (readability--toggle-archive-at $id $ov))))
+                (insert " ")
+                (ov-keymap
+                 (ov-set (ov-insert (assoc-default 'title $article))
+                         'face '(:underline t)
+                         'rdb-article-id $article-id)
+                 "RET" (lambda () (interactive)
+                         (readability--open-article (ov-val (ov-at) 'rdb-article-id)))
+                 "o"   $fn-open-in-other-window
+                 "O"   $fn-open-in-other-window
+                 "C-o" (lambda () (interactive)
+                         (let (($id (ov-val (ov-at) 'rdb-article-id))
+                               ($window (selected-window)))
+                           (other-window 1)
+                           (readability--open-article $id)
+                           (select-window $window))))
+                (insert "\n")))
+            (assoc-default 'bookmarks $articles)))
     (switch-to-buffer (current-buffer))
     (read-only-mode 1)))
 
