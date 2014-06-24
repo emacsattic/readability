@@ -4,7 +4,7 @@ Get Readability's reading list, and read each article on Emacs.
 
 ![readability.el](https://raw2.github.com/ShingoFukuyama/images/master/readability-el.gif)
 
-## Requre
+## Require
 + Emacs 24.3
 + [Readability Account](https://readability.com/)
 + [FontAwesome](http://fortawesome.github.io/Font-Awesome/) (font for icon)
@@ -12,6 +12,12 @@ Get Readability's reading list, and read each article on Emacs.
 + [ov.el](https://github.com/ShingoFukuyama/ov.el)
 
 ## Get Started
+
+```cl
+(add-to-list 'load-path "/your/path/to/emacs-readability")
+(require 'readability)
+```
+
 1. `M-x readability-get-reading-list`.  
 Your default browser will present Readability's login page (if you have not been logged in yet).
 2. After logged in, authorize this app by clicking "Allow" button.
@@ -24,6 +30,12 @@ Once authorization success, you don't need to login from then on.
 
 If you would like to logout, just do `M-x readability-delete-token-and-file`.
 
+## Keyboard shortcut
+
+* `RET` on an icon: toggle boolean status of star or archive.
+* `RET` on a title: open article in the current window.
+* `o, O` on a title: open article in another window.
+* `C-o` on a title: open article in another window without move the current window.
 
 ## Customize
 

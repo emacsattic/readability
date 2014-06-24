@@ -64,6 +64,11 @@
 (defvar readability-secret        "38YYwcbMJBh5K4rHxcaXKGgXAQZUYHKs")
 (defvar readability-access-token  nil)
 
+(defvar readability-icon-face-on
+  '(:foreground "#ee0" :family "FontAwesome" :height 1.2))
+(defvar readability-icon-face-off
+  '(:family "FontAwesome" :height 1.2))
+
 (defun readability--init ()
   "Get an access token from the token file. If it doesn't exist or fail to read from it,
 start oauth authorization via your default browser."
@@ -168,11 +173,6 @@ start oauth authorization via your default browser."
         (goto-char (point-min))
         (read-only-mode 1)
         (set-window-buffer $window $buffer)))))
-
-(setq readability-icon-face-on
-      '(:foreground "#ee0" :family "FontAwesome" :height 1.2))
-(setq readability-icon-face-off
-      '(:family "FontAwesome" :height 1.2))
 
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
   (let (($fav (ov-val $ov 'rdb-fav)))
