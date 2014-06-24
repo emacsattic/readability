@@ -5,8 +5,8 @@
 ;; Version: 1.0
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
-;; Created: Jan 22 2014
-;; Keywords: scss css less selector helm
+;; Created: Jun 24 2014
+;; Keywords: readability oauth
 ;; Package-Requires: ((oauth "1.04") (ov "1.0") (emacs "24.3"))
 
 ;; This program is free software; you can redistribute it and/or
@@ -37,11 +37,11 @@
     (setq oauth-nonce-function #'oauth-internal-make-nonce)))
 
 (defgroup readability nil
-  "Readability for Emacs"
+  "Group for readability.el"
   :prefix "readability-" :group 'applications)
 
 (defcustom readability-file-location (concat user-emacs-directory "readability-token")
-  "Split window when having multiple windows open"
+  "File path to store token"
   :group 'readability
   :type 'string)
 
@@ -64,7 +64,7 @@
 (defvar readability-access-token  nil)
 
 (defun readability--init ()
-  "Get an access token from the token file. If it is not exist or fail to read from it,
+  "Get an access token from the token file. If it doesn't exist or fail to read from it,
 start oauth authorization via your default browser."
   ;; Prevent to login with w3m or something for authorization
   (let ((browse-url-browser-function 'browse-url-default-browser))
@@ -113,7 +113,7 @@ start oauth authorization via your default browser."
       (delete-file readability-file-location)
     (error "Token file couldn't find")))
 
-(defun readability--check-authenticate ()
+(defun readability--check-authentication ()
   (unless readability-access-token
     (readability--init)))
 
@@ -133,7 +133,7 @@ start oauth authorization via your default browser."
     (substring $string 0 -1)))
 
 (defun readability--get-articles ()
-  (readability--check-authenticate)
+  (readability--check-authentication)
   (let ($raw)
     (with-current-buffer (oauth-url-retrieve
                           readability-access-token
@@ -144,7 +144,7 @@ start oauth authorization via your default browser."
     $raw))
 
 (defun readability--open-article ($article-id)
-  (readability--check-authenticate)
+  (readability--check-authentication)
   (let ($raw)
     (with-current-buffer (oauth-url-retrieve
                           readability-access-token
@@ -211,7 +211,7 @@ start oauth authorization via your default browser."
 (defun readability-get-reading-list ()
   "Get a reading list and draw it on a buffer"
   (interactive)
-  (readability--check-authenticate)
+  (readability--check-authentication)
   (with-current-buffer (get-buffer-create "Readability")
     (read-only-mode 0)
     (ov-clear)
