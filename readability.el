@@ -61,7 +61,7 @@
 (defvar readability-url-access    (format "%s/api/rest/v1/oauth/access_token/"  readability-url-base))
 (defvar readability-key           "foko")
 (defvar readability-secret        "38YYwcbMJBh5K4rHxcaXKGgXAQZUYHKs")
-(defvar readability-token-access  nil)
+(defvar readability-access-token  nil)
 
 (defun readability--init ()
   "Get an access token from the token file. If it is not exist or fail to read from it,
@@ -72,24 +72,24 @@ start oauth authorization via your default browser."
       (with-temp-buffer
         (insert-file-contents readability-file-location)
         (when (re-search-forward "\\`\\([^:]+\\):\\([^\n]+\\)\\'" nil t)
-          (setq readability-token-access
+          (setq readability-access-token
                 (make-oauth-access-token
                  :consumer-key readability-key
                  :consumer-secret readability-secret
                  :auth-t (make-oauth-t
                           :token (match-string 1)
                           :token-secret (match-string 2)))))))
-    (unless readability-token-access
-      (setq readability-token-access
+    (unless readability-access-token
+      (setq readability-access-token
             (oauth-authorize-app readability-key
                                  readability-secret
                                  readability-url-request
                                  readability-url-access
                                  readability-url-authorize))
-      (when readability-token-access
+      (when readability-access-token
         (with-temp-file readability-file-location
           (erase-buffer)
-          (let (($token (oauth-access-token-auth-t readability-token-access)))
+          (let (($token (oauth-access-token-auth-t readability-access-token)))
             (insert (format "%s:%s"
                             (oauth-t-token $token)
                             (oauth-t-token-secret $token)))))))))
@@ -108,13 +108,13 @@ start oauth authorization via your default browser."
 
 (defun readability-delete-token-and-file ()
   (interactive)
-  (setq readability-token-access nil)
+  (setq readability-access-token nil)
   (if (file-exists-p readability-file-location)
       (delete-file readability-file-location)
     (error "Token file couldn't find")))
 
 (defun readability--check-authenticate ()
-  (unless readability-token-access
+  (unless readability-access-token
     (readability--init)))
 
 (defun readability--json-buffer-serialize ()
@@ -136,7 +136,7 @@ start oauth authorization via your default browser."
   (readability--check-authenticate)
   (let ($raw)
     (with-current-buffer (oauth-url-retrieve
-                          readability-token-access
+                          readability-access-token
                           (concat readability-url-base
                                   "/api/rest/v1/bookmarks"
                                   (readability--params-to-string readability-parameters)))
@@ -147,7 +147,7 @@ start oauth authorization via your default browser."
   (readability--check-authenticate)
   (let ($raw)
     (with-current-buffer (oauth-url-retrieve
-                          readability-token-access
+                          readability-access-token
                           (concat readability-url-base (format "/api/rest/v1/articles/%s" $article-id)))
       (setq $raw (readability--json-buffer-serialize)))
     ;; Display article buffer with shr format
@@ -185,7 +185,7 @@ start oauth authorization via your default browser."
 
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
   (let (($fav (ov-val $ov 'rdb-fav)))
-    (oauth-post-url readability-token-access
+    (oauth-post-url readability-access-token
                     (format "%s/api/rest/v1/bookmarks/%s"
                             readability-url-base
                             $bookmark-id)
@@ -197,7 +197,7 @@ start oauth authorization via your default browser."
 
 (defun readability--toggle-archive-at ($bookmark-id $ov)
   (let (($archive (ov-val $ov 'rdb-fav)))
-    (oauth-post-url readability-token-access
+    (oauth-post-url readability-access-token
                     (format "%s/api/rest/v1/bookmarks/%s"
                             readability-url-base
                             $bookmark-id)

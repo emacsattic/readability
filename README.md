@@ -12,13 +12,16 @@ Get Readability's reading list, and read each article on Emacs.
 + [ov.el](https://github.com/ShingoFukuyama/ov.el)
 
 ## Get Started
-1. `M-x readability-get-reading-list`.
+1. `M-x readability-get-reading-list`.  
 Your default browser will present Readability's login page (if you have not been logged in yet).
-2. After logged in, authorization this app.
-3. Emacs will start fetching reading list.
-4. Press "RET" key on any title to show its contents.
+2. After logged in, authorize this app by clicking "Allow" button.
+3. Copy request token on the browser.
+4. Paste request token to Emacs mini buffer.
+5. Emacs will start fetching reading list.
+6. Press "RET" key on any title to show its contents.
 
 Once authorization success, you don't need to login from then on.
+
 If you would like to logout, just do `M-x readability-delete-token-and-file`.
 
 
