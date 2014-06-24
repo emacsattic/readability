@@ -29,6 +29,7 @@
 (require 'oauth)
 (require 'ov)
 (require 'shr)
+(require 'json)
 
 ;; oauth-hmac-sha1-param-reverse has been nil in some environments
 (unless oauth-hmac-sha1-param-reverse
@@ -166,17 +167,6 @@ start oauth authorization via your default browser."
         (goto-char (point-min))
         (read-only-mode 1)
         (set-window-buffer $window $buffer)))))
-
-(defun readability--encode-url ($url)
-  (let* (($word $url)
-         ($chars [?: ?/ ?= ?\" ?\' ?& ?-])
-         ($regexp (mapcar (lambda ($c)
-                            (cons (char-to-string $c) (my-char-to-entity $c)))
-                          $chars)))
-    (mapc (lambda ($r)
-            (setq $word (replace-regexp-in-string (car $r) (cdr $r) $word)))
-          $regexp)
-    $word))
 
 (setq readability-icon-face-on
       '(:foreground "#ee0" :family "FontAwesome" :height 1.2))
