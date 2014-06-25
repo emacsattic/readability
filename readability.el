@@ -1,4 +1,4 @@
-;;; readability.el --- Read articles on Emacs via Readability -*- coding: utf-8; lexical-binding: t -*-
+;;; readability.el --- Read articles from Readability in Emacs -*- coding: utf-8; lexical-binding: t -*-
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
