@@ -38,7 +38,7 @@ If you would like to logout, just do `M-x readability-delete-token-and-file`.
 * `C-o` on a title: open article in another window without move the current window.
 * `+` on article buffer: font size + 0.1.
 + `-` on article buffer: font size - 0.1.
-+ `f` on article buffer: toggle font.
++ `f` on article buffer: toggle fonts.
 
 ## Customize
 
@@ -64,8 +64,14 @@ You can specify more parameters: https://www.readability.com/developers/api/read
 
 ### Toggle fonts
 ```cl
-(setq readability-font-list '("Georgia" "Arial" "Verdana"))
+(setq readability-font-list
+      `(,(format "%s" (font-get (face-attribute 'default :font) :family)) ;; default
+        "Georgia"
+        "Arial"
+        "Verdana"))
 ```
+
+First font is applied when open an article buffer.
 
 Note: fonts for multi-byte are not worked properly.
 

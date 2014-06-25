@@ -60,7 +60,11 @@
         ))
 
 (defvar readability-font-list)
-(setq readability-font-list '("Georgia" "Arial" "Verdana"))
+(setq readability-font-list
+      `(,(format "%s" (font-get (face-attribute 'default :font) :family)) ;; default
+        "Georgia"
+        "Arial"
+        "Verdana"))
 
 (defvar readability-url-base      "https://www.readability.com")
 (defvar readability-url-authorize (format "%s/api/rest/v1/oauth/authorize/"     readability-url-base))
@@ -167,7 +171,8 @@ start oauth authorization via your default browser."
     (let (($window (selected-window))
           ($buffer (get-buffer-create (format "Readability-%s" $article-id)))
           ($h1 (format "<h1>%s</h1>" (readability--decode-json-string (assoc-default 'title $raw))))
-          ($body (readability--decode-json-string (assoc-default 'content $raw))))
+          ($body (readability--decode-json-string (assoc-default 'content $raw)))
+          ($default-font))
       (with-current-buffer $buffer
         (read-only-mode 0)
         (ov-clear)
@@ -178,9 +183,9 @@ start oauth authorization via your default browser."
            (libxml-parse-html-region (point-min) (point-max))))
         (goto-char (point-min))
         (read-only-mode 1)
-        (set (make-local-variable 'readability-font-list)
-             (append readability-font-list
-                     `(,(format "%s" (font-get (face-attribute 'default :font) :family)))))
+        (set (make-local-variable 'readability-font-list) readability-font-list)
+        (setq $default-font (pop readability-font-list))
+        (setq readability-font-list (append readability-font-list `(,$default-font)))
         (ov-keymap
          (ov-set (ov (point-min) (point-max)) 'face '(:height 1.0) 'rdb-entire t)
          "+" (lambda () (interactive)
@@ -288,7 +293,7 @@ start oauth authorization via your default browser."
                 (insert "\n")))
             (assoc-default 'bookmarks $articles)))
     (goto-char (point-min))
-    (forward-char 4)
+    (forward-char 3)
     (switch-to-buffer (current-buffer))
     (read-only-mode 1)))
 
