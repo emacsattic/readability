@@ -1,4 +1,4 @@
-;;; readability.el ---  -*- coding: utf-8; lexical-binding: t -*-
+;;; readability.el --- Read articles on Emacs via Readability -*- coding: utf-8; lexical-binding: t -*-
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
@@ -26,6 +26,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'oauth)
 (require 'ov)
 (require 'shr)
@@ -58,7 +59,8 @@
         ("tags"     . nil)  ;; string
         ))
 
-(defvar readability-font-type)
+(defvar readability-font-list)
+(setq readability-font-list '("Georgia" "Arial" "Verdana"))
 
 (defvar readability-url-base      "https://www.readability.com")
 (defvar readability-url-authorize (format "%s/api/rest/v1/oauth/authorize/"     readability-url-base))
@@ -176,16 +178,29 @@ start oauth authorization via your default browser."
            (libxml-parse-html-region (point-min) (point-max))))
         (goto-char (point-min))
         (read-only-mode 1)
+        (set (make-local-variable 'readability-font-list)
+             (append readability-font-list
+                     `(,(format "%s" (font-get (face-attribute 'default :font) :family)))))
         (ov-keymap
-         (ov-set (ov (point-min) (point-max)) 'rdb-face-height 1.0 'rdb-entire t)
+         (ov-set (ov (point-min) (point-max)) 'face '(:height 1.0) 'rdb-entire t)
          "+" (lambda () (interactive)
                (let* (($ov (car (ov-in 'rdb-entire)))
-                      ($height (/ (round (+ (ov-val $ov 'rdb-face-height) 0.1) 0.1) 10.0)))
-                 (ov-set $ov 'face `(:height ,$height) 'rdb-face-height $height)))
+                      ($attr (cl-copy-list (ov-val $ov 'face)))
+                      ($height (/ (round (+ (plist-get $attr :height) 0.1) 0.1) 10.0)))
+                 (ov-set $ov 'face (plist-put $attr :height $height))))
          "-" (lambda () (interactive)
                (let* (($ov (car (ov-in 'rdb-entire)))
-                      ($height (/ (round (- (ov-val $ov 'rdb-face-height) 0.1) 0.1) 10.0)))
-                 (ov-set $ov 'face `(:height ,$height) 'rdb-face-height $height))))
+                      ($attr (cl-copy-list (ov-val $ov 'face)))
+                      ($height (/ (round (- (plist-get $attr :height) 0.1) 0.1) 10.0)))
+                 (when (> $height 0.1)
+                   (ov-set $ov 'face (plist-put $attr :height $height)))))
+         "f" (lambda () (interactive)
+               (if (> (length readability-font-list) 0)
+                   (let* (($ov (car (ov-in 'rdb-entire)))
+                          ($attr (cl-copy-list (ov-val $ov 'face)))
+                          ($font (pop readability-font-list)))
+                     (setq readability-font-list (append readability-font-list `(,$font)))
+                     (ov-set $ov 'face (plist-put $attr :family $font))))))
         (set-window-buffer $window $buffer)))))
 
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
@@ -244,7 +259,6 @@ start oauth authorization via your default browser."
                          (let* (($ov (ov-at))
                                 ($id (ov-val $ov 'rdb-bookmark-id)))
                            (readability--toggle-favorite-at $id $ov))))
-                (insert " ")
                 (ov-keymap
                  (ov-set (ov-insert "\uf187")
                          'face (if (equal $archive :json-false)
@@ -273,6 +287,8 @@ start oauth authorization via your default browser."
                            (select-window $window))))
                 (insert "\n")))
             (assoc-default 'bookmarks $articles)))
+    (goto-char (point-min))
+    (forward-char 4)
     (switch-to-buffer (current-buffer))
     (read-only-mode 1)))
 

@@ -26,7 +26,7 @@ Your default browser will present Readability's login page (if you have not been
 5. Emacs will start fetching a reading list.
 6. Press "RET" key on any title to show its contents.
 
-Once authorization success, you don't need to login from then on.
+Once authorization successed, you don't need to login from then on.
 
 If you would like to logout, just do `M-x readability-delete-token-and-file`.
 
@@ -38,6 +38,7 @@ If you would like to logout, just do `M-x readability-delete-token-and-file`.
 * `C-o` on a title: open article in another window without move the current window.
 * `+` on article buffer: font size + 0.1.
 + `-` on article buffer: font size - 0.1.
++ `f` on article buffer: toggle font.
 
 ## Customize
 
@@ -60,5 +61,14 @@ If you would like to logout, just do `M-x readability-delete-token-and-file`.
 ```
 
 You can specify more parameters: https://www.readability.com/developers/api/reader#idm301959944144
+
+### Toggle fonts
+```cl
+(setq readability-font-list '("Georgia" "Arial" "Verdana"))
+```
+
+Note: fonts for multi-byte are not worked properly.
+
+
 
 
