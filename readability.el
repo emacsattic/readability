@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
-;; Version: 1.0
+;; Version: 1.0.1
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
 ;; Created: Jun 24 2014
@@ -47,8 +47,9 @@
   :group 'readability
   :type 'string)
 
-;; you can specify more parameters: https://www.readability.com/developers/api/reader#idm301959944144
-(defvar readability-parameters)
+(defvar readability-parameters nil
+  "you can specify more parameters:
+https://www.readability.com/developers/api/reader#idm301959944144")
 (setq readability-parameters
       '(("archive"  . nil)  ;; "0", "1"
         ("favorite" . nil)  ;; "0", "1"
@@ -78,6 +79,18 @@
   '(:foreground "#ee0" :family "FontAwesome" :height 1.2))
 (defvar readability-icon-face-off
   '(:family "FontAwesome" :height 1.2))
+
+(defvar readability-map-common
+  (let (($map (make-sparse-keymap)))
+    (define-key $map (kbd "n") (lambda () (interactive) (call-interactively 'next-line)))
+    (define-key $map (kbd "j") (lambda () (interactive) (call-interactively 'next-line)))
+    (define-key $map (kbd "p") (lambda () (interactive) (call-interactively 'previous-line)))
+    (define-key $map (kbd "k") (lambda () (interactive) (call-interactively 'previous-line)))
+    (define-key $map (kbd "f") (lambda () (interactive) (call-interactively 'forward-char)))
+    (define-key $map (kbd "l") (lambda () (interactive) (call-interactively 'forward-char)))
+    (define-key $map (kbd "b") (lambda () (interactive) (call-interactively 'backward-char)))
+    (define-key $map (kbd "h") (lambda () (interactive) (call-interactively 'backward-char)))
+    $map))
 
 (defun readability--init ()
   "Get an access token from the token file. If it doesn't exist or fail to read from it,
@@ -203,14 +216,15 @@ start oauth authorization via your default browser."
                       ($height (/ (round (- (plist-get $attr :height) 0.1) 0.1) 10.0)))
                  (when (> $height 0.1)
                    (ov-set $ov 'face (plist-put $attr :height $height)))))
-         "f" (lambda () (interactive)
+         "F" (lambda () (interactive)
                (if (> (length readability-font-list) 0)
                    (let* (($ov (car (ov-in 'rdb-entire)))
                           ($attr (cl-copy-list (ov-val $ov 'face)))
                           ($font (pop readability-font-list)))
                      (setq readability-font-list (append readability-font-list `(,$font)))
                      (ov-set $ov 'face (plist-put $attr :family $font))))))
-        (set-window-buffer $window $buffer)))))
+        (set-window-buffer $window $buffer)
+        (use-local-map readability-map-common)))))
 
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
   (let (($fav (ov-val $ov 'rdb-fav)))
@@ -299,7 +313,8 @@ start oauth authorization via your default browser."
     (goto-char (point-min))
     (forward-char 3)
     (switch-to-buffer (current-buffer))
-    (read-only-mode 1)))
+    (read-only-mode 1)
+    (use-local-map readability-map-common)))
 
 
 (provide 'readability)

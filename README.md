@@ -37,8 +37,13 @@ If you would like to logout, just do `M-x readability-delete-token-and-file`.
 * `o, O` on a title: open article in another window.
 * `C-o` on a title: open article in another window without move the current window.
 * `+` on article buffer: font size + 0.1.
-+ `-` on article buffer: font size - 0.1.
-+ `f` on article buffer: toggle fonts.
+* `-` on article buffer: font size - 0.1.
+* `F` on article buffer: toggle fonts.
+
+Following keybinds work with latest ov.el(ver 1.0.3)
+
+* `f,b,n,p`: move cursor.
+* `h,l,j,k`: move cursor like vi.
 
 ## Customize
 
