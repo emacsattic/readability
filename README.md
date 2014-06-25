@@ -36,6 +36,8 @@ If you would like to logout, just do `M-x readability-delete-token-and-file`.
 * `RET` on a title: open article in the current window.
 * `o, O` on a title: open article in another window.
 * `C-o` on a title: open article in another window without move the current window.
+* `+` on article buffer: font size + 0.1.
++ `-` on article buffer: font size - 0.1.
 
 ## Customize
 
@@ -47,11 +49,13 @@ If you would like to logout, just do `M-x readability-delete-token-and-file`.
 ### Reading list parameter
 ```cl
 (setq readability-parameters
-      '(("archive"  . nil) ;; "0", "1"
-        ("favorite" . nil) ;; "0", "1"
-        ("order"    . nil) ;; "-date_added", "date_added", "-date_updated", "date_updated"
-        ("domain"   . nil) ;; string
-        ("tags"     . nil) ;; string
+      '(("archive"  . nil)  ;; "0", "1"
+        ("favorite" . nil)  ;; "0", "1"
+        ("order"    . nil)  ;; "-date_added", "date_added", "-date_updated", "date_updated"
+        ("page"     . nil)  ;; "1" ~
+        ("per_page" . "50") ;; "1" ~ "50"
+        ("domain"   . nil)  ;; string
+        ("tags"     . nil)  ;; string
         ))
 ```
 

@@ -49,12 +49,16 @@
 ;; you can specify more parameters: https://www.readability.com/developers/api/reader#idm301959944144
 (defvar readability-parameters)
 (setq readability-parameters
-      '(("archive"  . nil) ;; "0", "1"
-        ("favorite" . nil) ;; "0", "1"
-        ("order"    . nil) ;; "-date_added", "date_added", "-date_updated", "date_updated"
-        ("domain"   . nil) ;; string
-        ("tags"     . nil) ;; string
+      '(("archive"  . nil)  ;; "0", "1"
+        ("favorite" . nil)  ;; "0", "1"
+        ("order"    . nil)  ;; "-date_added", "date_added", "-date_updated", "date_updated"
+        ("page"     . nil)  ;; "1" ~
+        ("per_page" . "50") ;; "1" ~ "50"
+        ("domain"   . nil)  ;; string
+        ("tags"     . nil)  ;; string
         ))
+
+(defvar readability-font-type)
 
 (defvar readability-url-base      "https://www.readability.com")
 (defvar readability-url-authorize (format "%s/api/rest/v1/oauth/authorize/"     readability-url-base))
@@ -172,6 +176,16 @@ start oauth authorization via your default browser."
            (libxml-parse-html-region (point-min) (point-max))))
         (goto-char (point-min))
         (read-only-mode 1)
+        (ov-keymap
+         (ov-set (ov (point-min) (point-max)) 'rdb-face-height 1.0 'rdb-entire t)
+         "+" (lambda () (interactive)
+               (let* (($ov (car (ov-in 'rdb-entire)))
+                      ($height (/ (round (+ (ov-val $ov 'rdb-face-height) 0.1) 0.1) 10.0)))
+                 (ov-set $ov 'face `(:height ,$height) 'rdb-face-height $height)))
+         "-" (lambda () (interactive)
+               (let* (($ov (car (ov-in 'rdb-entire)))
+                      ($height (/ (round (- (ov-val $ov 'rdb-face-height) 0.1) 0.1) 10.0)))
+                 (ov-set $ov 'face `(:height ,$height) 'rdb-face-height $height))))
         (set-window-buffer $window $buffer)))))
 
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
