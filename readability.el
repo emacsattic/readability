@@ -61,7 +61,7 @@
 
 (defvar readability-font-list)
 (setq readability-font-list
-      `(,(format "%s" (font-get (face-attribute 'default :font) :family)) ;; default
+      '("Default"
         "Georgia"
         "Arial"
         "Verdana"))
@@ -127,7 +127,8 @@ start oauth authorization via your default browser."
   (setq readability-access-token nil)
   (if (file-exists-p readability-file-location)
       (delete-file readability-file-location)
-    (error "Token file couldn't find")))
+    (error (format "Token file couldn't find: %s" readability-file-location)))
+  (message "Successfully delete token and token file"))
 
 (defun readability--check-authentication ()
   (unless readability-access-token
@@ -184,6 +185,9 @@ start oauth authorization via your default browser."
         (goto-char (point-min))
         (read-only-mode 1)
         (set (make-local-variable 'readability-font-list) readability-font-list)
+        (if (member "Default" readability-font-list)
+            (setf (car (member "Default" readability-font-list))
+                  (format "%s" (font-get (face-attribute 'default :font) :family))))
         (setq $default-font (pop readability-font-list))
         (setq readability-font-list (append readability-font-list `(,$default-font)))
         (ov-keymap

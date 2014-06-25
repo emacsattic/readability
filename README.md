@@ -65,7 +65,7 @@ You can specify more parameters: https://www.readability.com/developers/api/read
 ### Toggle fonts
 ```cl
 (setq readability-font-list
-      `(,(format "%s" (font-get (face-attribute 'default :font) :family)) ;; default
+      '("Default" ;; "Default" will be replaced with your default font
         "Georgia"
         "Arial"
         "Verdana"))
