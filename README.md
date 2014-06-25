@@ -52,6 +52,14 @@ Following keybinds work with latest ov.el(ver 1.0.3)
 (setq readability-file-location "your/path/to/token_file")
 ```
 
+### Adjust line width and height
+```
+;; Space between line and line in article buffers, without affect other buffers
+(setq readability-line-height-for-article 1.15)
+;; Each line's length calculation
+(setq readability--line-width-for-article (lambda () (- (window-width) 10)))
+```
+
 ### Reading list parameter
 ```cl
 (setq readability-parameters

@@ -89,6 +89,9 @@ https://www.readability.com/developers/api/reader#idm301959944144")
         "Arial"
         "Verdana"))
 
+(defvar readability-line-height-for-article 1.2)
+(defvar readability--line-width-for-article (lambda () (- (window-width) 10)))
+
 (defvar readability-url-base      "https://www.readability.com")
 (defvar readability-url-authorize (format "%s/api/rest/v1/oauth/authorize/"     readability-url-base))
 (defvar readability-url-request   (format "%s/api/rest/v1/oauth/request_token/" readability-url-base))
@@ -113,6 +116,11 @@ https://www.readability.com/developers/api/reader#idm301959944144")
     (define-key $map (kbd "b") (lambda () (interactive) (call-interactively 'backward-char)))
     (define-key $map (kbd "h") (lambda () (interactive) (call-interactively 'backward-char)))
     $map))
+
+(defun readability--set-line-height ()
+  (ov-set "\n"
+          'face `(:height ,readability-line-height-for-article)
+          'rdb-line-break t))
 
 (defun readability--init ()
   "Get an access token from the token file. If it doesn't exist or fail to read from it,
@@ -213,10 +221,14 @@ start oauth authorization via your default browser."
         (read-only-mode 0)
         (ov-clear)
         (erase-buffer)
-        (shr-insert-document
-         (with-temp-buffer
-           (insert $h1 $body)
-           (libxml-parse-html-region (point-min) (point-max))))
+        ;; Override default line width
+        (let ((shr-width (if readability--line-width-for-article
+                             (funcall readability--line-width-for-article)
+                           shr-width)))
+          (shr-insert-document
+           (with-temp-buffer
+             (insert $h1 $body)
+             (libxml-parse-html-region (point-min) (point-max)))))
         (goto-char (point-min))
         (read-only-mode 1)
         (set (make-local-variable 'readability-font-list) readability-font-list)
@@ -245,6 +257,7 @@ start oauth authorization via your default browser."
                           ($font (pop readability-font-list)))
                      (setq readability-font-list (append readability-font-list `(,$font)))
                      (ov-set $ov 'face (plist-put $attr :family $font))))))
+        (readability--set-line-height)
         (set-window-buffer $window $buffer)
         (use-local-map readability-map-common)))))
 
