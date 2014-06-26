@@ -9,6 +9,7 @@ Get Readability's reading list, and read each article on Emacs.
 + [Readability Account](https://readability.com/)
 + [FontAwesome](http://fortawesome.github.io/Font-Awesome/) (font for icon)
 + [oauth.el](https://github.com/psanford/emacs-oauth)
++ [async.el](https://github.com/jwiegley/emacs-async)
 + [ov.el](https://github.com/ShingoFukuyama/ov.el)
 
 ## Get Started
@@ -88,6 +89,10 @@ First font is applied when open an article buffer.
 
 Note: fonts for multi-byte are not worked properly.
 
+## Change Log
+
+#### ver 1.1.0
+Add asynchronous features to fetching article and toggle status of favorite/archive.
 
 
 

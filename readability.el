@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
-;; Version: 1.0.2
+;; Version: 1.1.0
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
 ;; Created: Jun 24 2014
@@ -53,6 +53,7 @@
 (require 'ov)
 (require 'shr)
 (require 'json)
+(require 'async)
 
 ;; oauth-hmac-sha1-param-reverse has been nil in some environments
 (unless oauth-hmac-sha1-param-reverse
@@ -116,6 +117,26 @@ https://www.readability.com/developers/api/reader#idm301959944144")
     (define-key $map (kbd "b") (lambda () (interactive) (call-interactively 'backward-char)))
     (define-key $map (kbd "h") (lambda () (interactive) (call-interactively 'backward-char)))
     $map))
+
+(defun readability--oauth-url-retrieve ($access-token $url $callback)
+  "Like url retrieve, with url-request-extra-headers set to the necessary
+oauth headers. $CALLBACK will receive url as an argument."
+  (let (($req (oauth-make-request
+               $url
+               (oauth-access-token-consumer-key $access-token)
+               (oauth-access-token-auth-t $access-token))))
+    (setf (oauth-request-http-method $req) (or url-request-method "GET"))
+    (when oauth-post-vars-alist
+      (setf (oauth-request-params $req)
+            (append (oauth-request-params $req) oauth-post-vars-alist)))
+    (oauth-sign-request-hmac-sha1
+     $req (oauth-access-token-consumer-secret $access-token))
+    (let ((url-request-extra-headers (if url-request-extra-headers
+                                         (append url-request-extra-headers
+                                                 (oauth-request-to-header $req))
+                                       (oauth-request-to-header $req)))
+          (url-request-method (oauth-request-http-method $req)))
+      (funcall $callback (oauth-request-url $req)))))
 
 (defun readability--set-line-height ()
   (ov-set "\n"
@@ -204,98 +225,126 @@ start oauth authorization via your default browser."
       (setq $raw (readability--json-buffer-serialize)))
     $raw))
 
-(defun readability--open-article ($article-id)
+(defun readability--open-article ($article-id &optional $window)
   (readability--check-authentication)
-  (let ($raw)
-    (with-current-buffer (oauth-url-retrieve
-                          readability-access-token
-                          (concat readability-url-base (format "/api/rest/v1/articles/%s" $article-id)))
-      (setq $raw (readability--json-buffer-serialize)))
-    ;; Display article buffer with shr format
-    (let (($window (selected-window))
-          ($buffer (get-buffer-create (format "Readability-%s" $article-id)))
-          ($h1 (format "<h1>%s</h1>" (readability--decode-json-string (assoc-default 'title $raw))))
-          ($body (readability--decode-json-string (assoc-default 'content $raw)))
-          ($default-font))
-      (with-current-buffer $buffer
-        (read-only-mode 0)
-        (ov-clear)
-        (erase-buffer)
-        ;; Override default line width
-        (let ((shr-width (if readability--line-width-for-article
-                             (funcall readability--line-width-for-article)
-                           shr-width)))
-          (shr-insert-document
-           (with-temp-buffer
-             (insert $h1 $body)
-             (libxml-parse-html-region (point-min) (point-max)))))
-        (goto-char (point-min))
-        (read-only-mode 1)
-        (set (make-local-variable 'readability-font-list) readability-font-list)
-        (if (member "Default" readability-font-list)
-            (setf (car (member "Default" readability-font-list))
-                  (format "%s" (font-get (face-attribute 'default :font) :family))))
-        (setq $default-font (pop readability-font-list))
-        (setq readability-font-list (append readability-font-list `(,$default-font)))
-        (ov-keymap
-         (ov-set (ov (point-min) (point-max)) 'face '(:height 1.0) 'rdb-entire t)
-         "+" (lambda () (interactive)
-               (let* (($ov (car (ov-in 'rdb-entire)))
-                      ($attr (cl-copy-list (ov-val $ov 'face)))
-                      ($height (/ (round (+ (plist-get $attr :height) 0.1) 0.1) 10.0)))
-                 (ov-set $ov 'face (plist-put $attr :height $height))))
-         "-" (lambda () (interactive)
-               (let* (($ov (car (ov-in 'rdb-entire)))
-                      ($attr (cl-copy-list (ov-val $ov 'face)))
-                      ($height (/ (round (- (plist-get $attr :height) 0.1) 0.1) 10.0)))
-                 (when (> $height 0.1)
-                   (ov-set $ov 'face (plist-put $attr :height $height)))))
-         "F" (lambda () (interactive)
-               (if (> (length readability-font-list) 0)
-                   (let* (($ov (car (ov-in 'rdb-entire)))
-                          ($attr (cl-copy-list (ov-val $ov 'face)))
-                          ($font (pop readability-font-list)))
-                     (setq readability-font-list (append readability-font-list `(,$font)))
-                     (ov-set $ov 'face (plist-put $attr :family $font))))))
-        (readability--set-line-height)
-        (set-window-buffer $window $buffer)
-        (use-local-map readability-map-common)))))
+  (let* (($raw)
+         ($callback
+          (lambda ()
+            (setq $raw (readability--json-buffer-serialize))
+            ;; Display article buffer with shr format
+            (let (($buffer (get-buffer-create (format "Readability-%s" $article-id)))
+                  ($h1 (format "<h1>%s</h1>" (readability--decode-json-string (assoc-default 'title $raw))))
+                  ($body (readability--decode-json-string (assoc-default 'content $raw)))
+                  ($default-font))
+              (with-current-buffer $buffer
+                (read-only-mode 0)
+                (ov-clear)
+                (erase-buffer)
+                ;; Override default line width
+                (let ((shr-width (if readability--line-width-for-article
+                                     (funcall readability--line-width-for-article)
+                                   shr-width)))
+                  (shr-insert-document
+                   (with-temp-buffer
+                     (insert $h1 $body)
+                     (libxml-parse-html-region (point-min) (point-max)))))
+                (goto-char (point-min))
+                (read-only-mode 1)
+                (set (make-local-variable 'readability-font-list) readability-font-list)
+                (if (member "Default" readability-font-list)
+                    (setf (car (member "Default" readability-font-list))
+                          (format "%s" (font-get (face-attribute 'default :font) :family))))
+                (setq $default-font (pop readability-font-list))
+                (setq readability-font-list (append readability-font-list `(,$default-font)))
+                (ov-keymap
+                 (ov-set (ov (point-min) (point-max)) 'face '(:height 1.0) 'rdb-entire t)
+                 "+" (lambda () (interactive)
+                       (let* (($ov (car (ov-in 'rdb-entire)))
+                              ($attr (cl-copy-list (ov-val $ov 'face)))
+                              ($height (/ (round (+ (plist-get $attr :height) 0.1) 0.1) 10.0)))
+                         (ov-set $ov 'face (plist-put $attr :height $height))))
+                 "-" (lambda () (interactive)
+                       (let* (($ov (car (ov-in 'rdb-entire)))
+                              ($attr (cl-copy-list (ov-val $ov 'face)))
+                              ($height (/ (round (- (plist-get $attr :height) 0.1) 0.1) 10.0)))
+                         (when (> $height 0.1)
+                           (ov-set $ov 'face (plist-put $attr :height $height)))))
+                 "F" (lambda () (interactive)
+                       (if (> (length readability-font-list) 0)
+                           (let* (($ov (car (ov-in 'rdb-entire)))
+                                  ($attr (cl-copy-list (ov-val $ov 'face)))
+                                  ($font (pop readability-font-list)))
+                             (setq readability-font-list (append readability-font-list `(,$font)))
+                             (ov-set $ov 'face (plist-put $attr :family $font))))))
+                (readability--set-line-height)
+                (cl-typecase $window
+                  (cons (set-window-buffer (car $window) $buffer)
+                        (select-window (cdr $window)))
+                  (window (set-window-buffer $window $buffer)
+                          (select-window $window))
+                  (t (set-window-buffer (selected-window) $buffer)))
+                (use-local-map readability-map-common))))))
+    ;; Get article asynchronously
+    (readability--oauth-url-retrieve
+     readability-access-token
+     (concat readability-url-base (format "/api/rest/v1/articles/%s" $article-id))
+     (lambda ($url)
+       (async-start
+        `(lambda ()
+           (setq vc-handled-backends nil)
+           (require 'url)
+           (url-gc-dead-buffers)
+           (let ((curl-args '("-s" ,(when oauth-curl-insecure "-k")
+                              "-X" ,url-request-method
+                              "-i" ,$url
+                              ,@(when oauth-post-vars-alist
+                                  (apply 'append
+                                         (mapcar
+                                          (lambda (pair)
+                                            (list "-d" (concat (car pair) "="
+                                                               (oauth-hexify-string (cdr pair)))))
+                                          oauth-post-vars-alist)))
+                              ,@(oauth-headers-to-curl url-request-extra-headers))))
+             (apply 'call-process "curl" nil t nil curl-args))
+           (url-mark-buffer-as-dead (current-buffer))
+           (buffer-string))
+        (lambda ($result)
+          (with-temp-buffer
+            (insert $result)
+            (funcall $callback))))))))
 
-(defun readability--oauth-post-async (access-token url &optional vars-alist)
+(defun readability--oauth-post-async ($access-token $url &optional $vars-alist)
   "When url protocol is https, `url-retrieve' lose its asynchronous connectivity.
 To avoid this, use curl command with `start-process'"
-  (let ((req (oauth-make-request
-              url
-              (oauth-access-token-consumer-key access-token)
-              (oauth-access-token-auth-t access-token)))
-        (oauth-post-vars-alist vars-alist))
-    (setf (oauth-request-http-method req) "POST")
+  (let (($req (oauth-make-request
+               $url
+               (oauth-access-token-consumer-key $access-token)
+               (oauth-access-token-auth-t $access-token)))
+        (oauth-post-vars-alist $vars-alist))
+    (setf (oauth-request-http-method $req) "POST")
     (when oauth-post-vars-alist
-      (setf (oauth-request-params req)
-            (append (oauth-request-params req) oauth-post-vars-alist)))
+      (setf (oauth-request-params $req)
+            (append (oauth-request-params $req) oauth-post-vars-alist)))
     (oauth-sign-request-hmac-sha1
-     req (oauth-access-token-consumer-secret access-token))
+     $req (oauth-access-token-consumer-secret $access-token))
     (let* ((url-request-extra-headers (if url-request-extra-headers
                                           (append url-request-extra-headers
-                                                  (oauth-request-to-header req))
-                                        (oauth-request-to-header req)))
-           (url-request-method (oauth-request-http-method req))
-           (curl-args `("-s" ,(when oauth-curl-insecure "-k")
-                        "-X" ,url-request-method
-                        "-i" ,(oauth-request-url req)
-                        ,@(when oauth-post-vars-alist
-                            (apply
-                             'append
-                             (mapcar
-                              (lambda (pair)
-                                (list
-                                 "-d"
-                                 (concat (car pair) "="
-                                         (oauth-hexify-string (cdr pair)))))
-                              oauth-post-vars-alist)))
-                        ,@(oauth-headers-to-curl url-request-extra-headers))))
+                                                  (oauth-request-to-header $req))
+                                        (oauth-request-to-header $req)))
+           (url-request-method (oauth-request-http-method $req))
+           ($curl-args `("-s" ,(when oauth-curl-insecure "-k")
+                         "-X" ,url-request-method
+                         "-i" ,(oauth-request-url $req)
+                         ,@(when oauth-post-vars-alist
+                             (apply 'append
+                                    (mapcar
+                                     (lambda (pair)
+                                       (list "-d" (concat (car pair) "="
+                                                          (oauth-hexify-string (cdr pair)))))
+                                     oauth-post-vars-alist)))
+                         ,@(oauth-headers-to-curl url-request-extra-headers))))
       (url-gc-dead-buffers)
-      (apply 'start-process "oauth-process" nil "curl" curl-args))))
+      (apply 'start-process "oauth-process" nil "curl" $curl-args))))
 
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
   (let* (($fav (ov-val $ov 'rdb-fav)))
@@ -328,6 +377,7 @@ To avoid this, use curl command with `start-process'"
   "Get a reading list and draw it on a buffer"
   (interactive)
   (readability--check-authentication)
+  (message "Loading Reading List...")
   (with-current-buffer (get-buffer-create "Readability")
     (read-only-mode 0)
     (ov-clear)
@@ -335,9 +385,10 @@ To avoid this, use curl command with `start-process'"
     (let (($articles (readability--get-articles))
           ($fn-open-in-other-window
            (lambda () (interactive)
-             (let (($id (ov-val (ov-at) 'rdb-article-id)))
-               (other-window 1)
-               (readability--open-article $id)))))
+             (let (($id (ov-val (ov-at) 'rdb-article-id))
+                   ($window (save-selected-window
+                              (other-window 1) (selected-window))))
+               (readability--open-article $id $window)))))
       (mapc (lambda ($x)
               (let* (($article  (assoc-default 'article  $x))
                      ($favorite (assoc-default 'favorite $x))
@@ -372,22 +423,22 @@ To avoid this, use curl command with `start-process'"
                          'face '(:underline t)
                          'rdb-article-id $article-id)
                  "RET" (lambda () (interactive)
-                         (readability--open-article (ov-val (ov-at) 'rdb-article-id)))
+                         (readability--open-article (ov-val (ov-at) 'rdb-article-id) (selected-window)))
                  "o"   $fn-open-in-other-window
                  "O"   $fn-open-in-other-window
                  "C-o" (lambda () (interactive)
                          (let (($id (ov-val (ov-at) 'rdb-article-id))
-                               ($window (selected-window)))
-                           (other-window 1)
-                           (readability--open-article $id)
-                           (select-window $window))))
+                               ($window (save-selected-window
+                                          (other-window 1) (selected-window))))
+                           (readability--open-article $id `(,$window . ,(selected-window))))))
                 (insert "\n")))
             (assoc-default 'bookmarks $articles)))
     (goto-char (point-min))
     (forward-char 3)
     (switch-to-buffer (current-buffer))
     (read-only-mode 1)
-    (use-local-map readability-map-common)))
+    (use-local-map readability-map-common)
+    (message "Loading Reading List Complete!")))
 
 
 (provide 'readability)
