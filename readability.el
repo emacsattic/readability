@@ -195,7 +195,7 @@ start oauth authorization via your default browser."
   (with-temp-buffer
     (insert $string)
     (goto-char (point-min))
-    (while (re-search-forward "\&\\(\#[^;]+;\\)" nil t)
+    (while (re-search-forward "\&\\(\#x[^;]+\\);" nil t)
       (let (($beg (match-beginning 0))
             ($end (match-end 0))
             ($hex (match-string 1)))
