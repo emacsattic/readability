@@ -49,7 +49,7 @@
 ;;; Code:
 
 (setq readability-info-for-reading-list
-      "readability.el ver 1.1.0
+      "readability.el ver 1.1.2
 `RET'  on an icon        : toggle boolean status of favorite or archive.
 `RET'  on a title        : open article in the current window.
 `o, O' on a title        : open article in another window.
@@ -59,6 +59,7 @@
 `F'    on article buffer : toggle fonts.
 `f,b,n,p'                : move cursor.
 `h,l,j,k'                : move cursor like vi.
+`Left Click' is mostly equal to pressing `RET'
 ")
 
 (require 'cl-lib)
@@ -309,7 +310,9 @@ start oauth authorization via your default browser."
                   (shr-insert-document
                    (with-temp-buffer
                      (insert $h1 $body)
-                     (libxml-parse-html-region (point-min) (point-max)))))
+                     (libxml-parse-html-region (point-min) (point-max))))
+                  ;; Fix mouse click bug: [Quit: "pasteboard doesn't contain valid data"]
+                  (ov-set (ov-in 'mouse-face) 'mouse-face nil))
                 ;; Back to list
                 (funcall 'readability--icon-back-to-list)
                 (funcall 'readability--icon-open-url)
@@ -340,7 +343,10 @@ start oauth authorization via your default browser."
                                  ($attr (cl-copy-list (ov-val $ov 'face)))
                                  ($font (pop readability-font-list)))
                             (setq readability-font-list (append readability-font-list `(,$font)))
-                            (ov-set $ov 'face (plist-put $attr :family $font)))))
+                            (ov-set $ov 'face (plist-put $attr :family $font))))
+                 ;; Make sure to override
+                 "<mouse-1>" '(execute-kbd-macro (kbd "RET")))
+                (use-local-map readability-map-common)
                 (readability--set-line-height)
                 (cl-typecase $window
                   (cons (set-window-buffer (car $window) $buffer)
@@ -348,7 +354,6 @@ start oauth authorization via your default browser."
                   (window (set-window-buffer $window $buffer)
                           (select-window $window))
                   (t (set-window-buffer (selected-window) $buffer)))
-                (use-local-map readability-map-common)
                 (message "Start loading asynchronously... Complete!"))))))
     ;; Get article asynchronously
     (readability--oauth-url-retrieve
