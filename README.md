@@ -32,7 +32,7 @@ If you would like to logout, just do `M-x readability-delete-token-and-file`.
 
 ## Keyboard shortcut
 
-* `RET` on an icon: toggle boolean status of star or archive.
+* `RET` on an icon: toggle boolean status of favorite or archive.
 * `RET` on a title: open article in the current window.
 * `o, O` on a title: open article in another window.
 * `C-o` on a title: open article in another window without move the current window.

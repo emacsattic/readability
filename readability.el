@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
-;; Version: 1.0.1
+;; Version: 1.0.2
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
 ;; Created: Jun 24 2014
@@ -261,29 +261,67 @@ start oauth authorization via your default browser."
         (set-window-buffer $window $buffer)
         (use-local-map readability-map-common)))))
 
+(defun readability--oauth-post-async (access-token url &optional vars-alist)
+  "When url protocol is https, `url-retrieve' lose its asynchronous connectivity.
+To avoid this, use curl command with `start-process'"
+  (let ((req (oauth-make-request
+              url
+              (oauth-access-token-consumer-key access-token)
+              (oauth-access-token-auth-t access-token)))
+        (oauth-post-vars-alist vars-alist))
+    (setf (oauth-request-http-method req) "POST")
+    (when oauth-post-vars-alist
+      (setf (oauth-request-params req)
+            (append (oauth-request-params req) oauth-post-vars-alist)))
+    (oauth-sign-request-hmac-sha1
+     req (oauth-access-token-consumer-secret access-token))
+    (let* ((url-request-extra-headers (if url-request-extra-headers
+                                          (append url-request-extra-headers
+                                                  (oauth-request-to-header req))
+                                        (oauth-request-to-header req)))
+           (url-request-method (oauth-request-http-method req))
+           (curl-args `("-s" ,(when oauth-curl-insecure "-k")
+                        "-X" ,url-request-method
+                        "-i" ,(oauth-request-url req)
+                        ,@(when oauth-post-vars-alist
+                            (apply
+                             'append
+                             (mapcar
+                              (lambda (pair)
+                                (list
+                                 "-d"
+                                 (concat (car pair) "="
+                                         (oauth-hexify-string (cdr pair)))))
+                              oauth-post-vars-alist)))
+                        ,@(oauth-headers-to-curl url-request-extra-headers))))
+      (url-gc-dead-buffers)
+      (apply 'start-process "oauth-process" nil "curl" curl-args))))
+
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
-  (let (($fav (ov-val $ov 'rdb-fav)))
-    (oauth-post-url readability-access-token
-                    (format "%s/api/rest/v1/bookmarks/%s"
-                            readability-url-base
-                            $bookmark-id)
-                    `(("favorite" . ,(if $fav "0" "1"))))
+  (let* (($fav (ov-val $ov 'rdb-fav)))
+    (readability--oauth-post-async readability-access-token
+                                   (format "%s/api/rest/v1/bookmarks/%s"
+                                           readability-url-base
+                                           $bookmark-id)
+                                   `(("favorite" . ,(if $fav "0" "1"))))
     ;; toggle icon's color
     (ov-set $ov 'face (if $fav
                           readability-icon-face-off
-                        readability-icon-face-on))))
+                        readability-icon-face-on)
+            'rdb-fav (if $fav nil t))))
 
 (defun readability--toggle-archive-at ($bookmark-id $ov)
-  (let (($archive (ov-val $ov 'rdb-fav)))
-    (oauth-post-url readability-access-token
-                    (format "%s/api/rest/v1/bookmarks/%s"
-                            readability-url-base
-                            $bookmark-id)
-                    `(("archive" . ,(if $archive "0" "1"))))
+  (let (($archive (ov-val $ov 'rdb-archive)))
+    (readability--oauth-post-async readability-access-token
+                                   (format "%s/api/rest/v1/bookmarks/%s"
+                                           readability-url-base
+                                           $bookmark-id)
+                                   `(("archive" . ,(if $archive "0" "1"))))
     ;; toggle icon's color
     (ov-set $ov 'face (if $archive
                           readability-icon-face-off
-                        readability-icon-face-on))))
+                        readability-icon-face-on)
+            'rdb-archive (if $archive nil t))))
 
 ;;;###autoload
 (defun readability-get-reading-list ()
@@ -323,7 +361,7 @@ start oauth authorization via your default browser."
                                    readability-icon-face-off
                                  readability-icon-face-on)
                          'rdb-bookmark-id $bookmark-id
-                         'rdb-fav (if (equal $favorite :json-false) nil t))
+                         'rdb-archive (if (equal $archive :json-false) nil t))
                  "RET" (lambda () (interactive)
                          (let* (($ov (ov-at))
                                 ($id (ov-val $ov 'rdb-bookmark-id)))
