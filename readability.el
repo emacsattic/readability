@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
-;; Version: 1.1.0
+;; Version: 1.1.1
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
 ;; Created: Jun 24 2014
@@ -47,6 +47,19 @@
 ;; + https://www.readability.com/developers/api
 
 ;;; Code:
+
+(setq readability-info-for-reading-list
+      "readability.el ver 1.1.0
+`RET'  on an icon        : toggle boolean status of favorite or archive.
+`RET'  on a title        : open article in the current window.
+`o, O' on a title        : open article in another window.
+`C-o'  on a title        : open article in another window without move the current window.
+`+'    on article buffer : font size + 0.1.
+`-'    on article buffer : font size - 0.1.
+`F'    on article buffer : toggle fonts.
+`f,b,n,p'                : move cursor.
+`h,l,j,k'                : move cursor like vi.
+")
 
 (require 'cl-lib)
 (require 'oauth)
@@ -106,6 +119,8 @@ https://www.readability.com/developers/api/reader#idm301959944144")
 (defvar readability-icon-face-off
   '(:family "FontAwesome" :height 1.2))
 
+(defvar readability-article-url nil)
+(defvar readability-reading-list-buffer "Readability")
 (defvar readability-map-common
   (let (($map (make-sparse-keymap)))
     (define-key $map (kbd "n") (lambda () (interactive) (call-interactively 'next-line)))
@@ -225,8 +240,56 @@ start oauth authorization via your default browser."
       (setq $raw (readability--json-buffer-serialize)))
     $raw))
 
+(defun readability--icon-back-to-list ()
+  (ov-keymap
+   (ov-set (ov-insert "\uf0ca") ;; or \uf03a
+           'face '(:family "FontAwesome" :height 1.8 :underline nil)
+           'help-echo "Back to the list"
+           'after-string "  ")
+   "RET" (lambda () (interactive)
+           (when (get-buffer readability-reading-list-buffer)
+             (switch-to-buffer readability-reading-list-buffer)))))
+(defun readability--icon-open-url ()
+  (ov-keymap
+   (ov-set (ov-insert "\uf08e")
+           'face '(:family "FontAwesome" :height 1.8 :underline nil)
+           'help-echo "Open in default browser"
+           'after-string "  ")
+   "RET" (lambda () (interactive)
+           (if readability-article-url
+               (browse-url readability-article-url)))))
+(defun readability--icon-refresh-reading-list ()
+  (ov-keymap
+   (ov-set (ov-insert "\uf01e") ;; or \uf021
+           'face '(:family "FontAwesome" :height 1.8)
+           'help-echo "Reload"
+           'after-string " ")
+   "RET" (lambda () (interactive)
+           ;; Delay to show "Reloading..." text
+           (run-with-timer 0.2 nil 'readability-get-reading-list)
+           (ov-set (ov-in 'rdb-util-echo-area)
+                   'after-string (propertize " Reloading... \n"
+                                             'face '(:height 1.8))))))
+(defun readability--icon-info-for-reading-list ()
+  (ov-keymap
+   (ov-set (ov-insert "\uf05a") ;; or \uf129
+           'face '(:family "FontAwesome" :height 1.8)
+           'rdb-info nil
+           'help-echo "Infomation for this app"
+           'after-string " ")
+   "RET" (lambda () (interactive)
+           (let* (($ov (ov-at))
+                  ($is-open (ov-val $ov 'rdb-info)))
+             (if $is-open
+                 (progn (ov-set $ov 'rdb-info nil)
+                        (ov-set (ov-in 'rdb-util-echo-area) 'after-string ""))
+               (ov-set $ov 'rdb-info t)
+               (ov-set (ov-in 'rdb-util-echo-area) 'after-string readability-info-for-reading-list))))))
+
+
 (defun readability--open-article ($article-id &optional $window)
   (readability--check-authentication)
+  (message "Start loading asynchronously...")
   (let* (($raw)
          ($callback
           (lambda ()
@@ -240,6 +303,7 @@ start oauth authorization via your default browser."
                 (read-only-mode 0)
                 (ov-clear)
                 (erase-buffer)
+                (set (make-local-variable 'readability-article-url) (assoc-default 'url $raw))
                 ;; Override default line width
                 (let ((shr-width (if readability--line-width-for-article
                                      (funcall readability--line-width-for-article)
@@ -248,7 +312,13 @@ start oauth authorization via your default browser."
                    (with-temp-buffer
                      (insert $h1 $body)
                      (libxml-parse-html-region (point-min) (point-max)))))
+                ;; Back to list
+                (funcall 'readability--icon-back-to-list)
+                (funcall 'readability--icon-open-url)
                 (goto-char (point-min))
+                (funcall 'readability--icon-back-to-list)
+                (funcall 'readability--icon-open-url)
+                (ov-set (ov-insert "") 'before-string "\n")
                 (read-only-mode 1)
                 (set (make-local-variable 'readability-font-list) readability-font-list)
                 (if (member "Default" readability-font-list)
@@ -283,7 +353,8 @@ start oauth authorization via your default browser."
                   (window (set-window-buffer $window $buffer)
                           (select-window $window))
                   (t (set-window-buffer (selected-window) $buffer)))
-                (use-local-map readability-map-common))))))
+                (use-local-map readability-map-common)
+                (message "Start loading asynchronously... Complete!"))))))
     ;; Get article asynchronously
     (readability--oauth-url-retrieve
      readability-access-token
@@ -378,7 +449,7 @@ To avoid this, use curl command with `start-process'"
   (interactive)
   (readability--check-authentication)
   (message "Loading Reading List...")
-  (with-current-buffer (get-buffer-create "Readability")
+  (with-current-buffer (get-buffer-create readability-reading-list-buffer)
     (read-only-mode 0)
     (ov-clear)
     (erase-buffer)
@@ -389,6 +460,12 @@ To avoid this, use curl command with `start-process'"
                    ($window (save-selected-window
                               (other-window 1) (selected-window))))
                (readability--open-article $id $window)))))
+      ;; Set menu icons
+      (funcall 'readability--icon-refresh-reading-list)
+      (funcall 'readability--icon-info-for-reading-list)
+      ;; Set echo area
+      (ov-set (ov-insert "") 'before-string "\n" 'rdb-util-echo-area t)
+      ;; Populate reading list
       (mapc (lambda ($x)
               (let* (($article  (assoc-default 'article  $x))
                      ($favorite (assoc-default 'favorite $x))
@@ -400,6 +477,7 @@ To avoid this, use curl command with `start-process'"
                          'face (if (equal $favorite :json-false)
                                    readability-icon-face-off
                                  readability-icon-face-on)
+                         'after-string " "
                          'rdb-bookmark-id $bookmark-id
                          'rdb-fav (if (equal $favorite :json-false) nil t))
                  "RET" (lambda () (interactive)
@@ -411,13 +489,13 @@ To avoid this, use curl command with `start-process'"
                          'face (if (equal $archive :json-false)
                                    readability-icon-face-off
                                  readability-icon-face-on)
+                         'after-string " "
                          'rdb-bookmark-id $bookmark-id
                          'rdb-archive (if (equal $archive :json-false) nil t))
                  "RET" (lambda () (interactive)
                          (let* (($ov (ov-at))
                                 ($id (ov-val $ov 'rdb-bookmark-id)))
                            (readability--toggle-archive-at $id $ov))))
-                (insert " ")
                 (ov-keymap
                  (ov-set (ov-insert (assoc-default 'title $article))
                          'face '(:underline t)
@@ -434,11 +512,11 @@ To avoid this, use curl command with `start-process'"
                 (insert "\n")))
             (assoc-default 'bookmarks $articles)))
     (goto-char (point-min))
-    (forward-char 3)
+    (forward-char 4)
     (switch-to-buffer (current-buffer))
     (read-only-mode 1)
     (use-local-map readability-map-common)
-    (message "Loading Reading List Complete!")))
+    (message "Loading Reading List... Complete!")))
 
 
 (provide 'readability)
