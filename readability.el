@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
-;; Version: 1.1.1
+;; Version: 1.1.2
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
 ;; Created: Jun 24 2014
@@ -131,6 +131,7 @@ https://www.readability.com/developers/api/reader#idm301959944144")
     (define-key $map (kbd "l") (lambda () (interactive) (call-interactively 'forward-char)))
     (define-key $map (kbd "b") (lambda () (interactive) (call-interactively 'backward-char)))
     (define-key $map (kbd "h") (lambda () (interactive) (call-interactively 'backward-char)))
+    (define-key $map (kbd "<mouse-1>") (lambda () (interactive) (execute-kbd-macro (kbd "RET"))))
     $map))
 
 (defun readability--oauth-url-retrieve ($access-token $url $callback)
@@ -246,30 +247,28 @@ start oauth authorization via your default browser."
            'face '(:family "FontAwesome" :height 1.8 :underline nil)
            'help-echo "Back to the list"
            'after-string "  ")
-   "RET" (lambda () (interactive)
-           (when (get-buffer readability-reading-list-buffer)
-             (switch-to-buffer readability-reading-list-buffer)))))
+   "RET" '(when (get-buffer readability-reading-list-buffer)
+            (switch-to-buffer readability-reading-list-buffer))))
 (defun readability--icon-open-url ()
   (ov-keymap
    (ov-set (ov-insert "\uf08e")
            'face '(:family "FontAwesome" :height 1.8 :underline nil)
            'help-echo "Open in default browser"
            'after-string "  ")
-   "RET" (lambda () (interactive)
-           (if readability-article-url
-               (browse-url readability-article-url)))))
+   "RET" '(if readability-article-url
+              (browse-url readability-article-url))))
 (defun readability--icon-refresh-reading-list ()
   (ov-keymap
    (ov-set (ov-insert "\uf01e") ;; or \uf021
            'face '(:family "FontAwesome" :height 1.8)
            'help-echo "Reload"
            'after-string " ")
-   "RET" (lambda () (interactive)
-           ;; Delay to show "Reloading..." text
-           (run-with-timer 0.2 nil 'readability-get-reading-list)
-           (ov-set (ov-in 'rdb-util-echo-area)
-                   'after-string (propertize " Reloading... \n"
-                                             'face '(:height 1.8))))))
+   "RET" '(progn
+            ;; Delay to show "Reloading..." text
+            (run-with-timer 0.2 nil 'readability-get-reading-list)
+            (ov-set (ov-in 'rdb-util-echo-area)
+                    'after-string (propertize " Reloading... \n"
+                                              'face '(:height 1.8))))))
 (defun readability--icon-info-for-reading-list ()
   (ov-keymap
    (ov-set (ov-insert "\uf05a") ;; or \uf129
@@ -277,14 +276,13 @@ start oauth authorization via your default browser."
            'rdb-info nil
            'help-echo "Infomation for this app"
            'after-string " ")
-   "RET" (lambda () (interactive)
-           (let* (($ov (ov-at))
-                  ($is-open (ov-val $ov 'rdb-info)))
-             (if $is-open
-                 (progn (ov-set $ov 'rdb-info nil)
-                        (ov-set (ov-in 'rdb-util-echo-area) 'after-string ""))
-               (ov-set $ov 'rdb-info t)
-               (ov-set (ov-in 'rdb-util-echo-area) 'after-string readability-info-for-reading-list))))))
+   "RET" '(let* (($ov (ov-at))
+                 ($is-open (ov-val $ov 'rdb-info)))
+            (if $is-open
+                (progn (ov-set $ov 'rdb-info nil)
+                       (ov-set (ov-in 'rdb-util-echo-area) 'after-string ""))
+              (ov-set $ov 'rdb-info t)
+              (ov-set (ov-in 'rdb-util-echo-area) 'after-string readability-info-for-reading-list)))))
 
 
 (defun readability--open-article ($article-id &optional $window)
@@ -328,24 +326,21 @@ start oauth authorization via your default browser."
                 (setq readability-font-list (append readability-font-list `(,$default-font)))
                 (ov-keymap
                  (ov-set (ov (point-min) (point-max)) 'face '(:height 1.0) 'rdb-entire t)
-                 "+" (lambda () (interactive)
-                       (let* (($ov (car (ov-in 'rdb-entire)))
-                              ($attr (cl-copy-list (ov-val $ov 'face)))
-                              ($height (/ (round (+ (plist-get $attr :height) 0.1) 0.1) 10.0)))
-                         (ov-set $ov 'face (plist-put $attr :height $height))))
-                 "-" (lambda () (interactive)
-                       (let* (($ov (car (ov-in 'rdb-entire)))
-                              ($attr (cl-copy-list (ov-val $ov 'face)))
-                              ($height (/ (round (- (plist-get $attr :height) 0.1) 0.1) 10.0)))
-                         (when (> $height 0.1)
-                           (ov-set $ov 'face (plist-put $attr :height $height)))))
-                 "F" (lambda () (interactive)
-                       (if (> (length readability-font-list) 0)
-                           (let* (($ov (car (ov-in 'rdb-entire)))
-                                  ($attr (cl-copy-list (ov-val $ov 'face)))
-                                  ($font (pop readability-font-list)))
-                             (setq readability-font-list (append readability-font-list `(,$font)))
-                             (ov-set $ov 'face (plist-put $attr :family $font))))))
+                 "+" '(let* (($ov (car (ov-in 'rdb-entire)))
+                             ($attr (cl-copy-list (ov-val $ov 'face)))
+                             ($height (/ (round (+ (plist-get $attr :height) 0.1) 0.1) 10.0)))
+                        (ov-set $ov 'face (plist-put $attr :height $height)))
+                 "-" '(let* (($ov (car (ov-in 'rdb-entire)))
+                             ($attr (cl-copy-list (ov-val $ov 'face)))
+                             ($height (/ (round (- (plist-get $attr :height) 0.1) 0.1) 10.0)))
+                        (when (> $height 0.1)
+                          (ov-set $ov 'face (plist-put $attr :height $height))))
+                 "F" '(if (> (length readability-font-list) 0)
+                          (let* (($ov (car (ov-in 'rdb-entire)))
+                                 ($attr (cl-copy-list (ov-val $ov 'face)))
+                                 ($font (pop readability-font-list)))
+                            (setq readability-font-list (append readability-font-list `(,$font)))
+                            (ov-set $ov 'face (plist-put $attr :family $font)))))
                 (readability--set-line-height)
                 (cl-typecase $window
                   (cons (set-window-buffer (car $window) $buffer)
@@ -480,10 +475,9 @@ To avoid this, use curl command with `start-process'"
                          'after-string " "
                          'rdb-bookmark-id $bookmark-id
                          'rdb-fav (if (equal $favorite :json-false) nil t))
-                 "RET" (lambda () (interactive)
-                         (let* (($ov (ov-at))
-                                ($id (ov-val $ov 'rdb-bookmark-id)))
-                           (readability--toggle-favorite-at $id $ov))))
+                 "RET" '(let* (($ov (ov-at))
+                               ($id (ov-val $ov 'rdb-bookmark-id)))
+                          (readability--toggle-favorite-at $id $ov)))
                 (ov-keymap
                  (ov-set (ov-insert "\uf187")
                          'face (if (equal $archive :json-false)
@@ -492,23 +486,20 @@ To avoid this, use curl command with `start-process'"
                          'after-string " "
                          'rdb-bookmark-id $bookmark-id
                          'rdb-archive (if (equal $archive :json-false) nil t))
-                 "RET" (lambda () (interactive)
-                         (let* (($ov (ov-at))
-                                ($id (ov-val $ov 'rdb-bookmark-id)))
-                           (readability--toggle-archive-at $id $ov))))
+                 "RET" '(let* (($ov (ov-at))
+                               ($id (ov-val $ov 'rdb-bookmark-id)))
+                          (readability--toggle-archive-at $id $ov)))
                 (ov-keymap
                  (ov-set (ov-insert (assoc-default 'title $article))
                          'face '(:underline t)
                          'rdb-article-id $article-id)
-                 "RET" (lambda () (interactive)
-                         (readability--open-article (ov-val (ov-at) 'rdb-article-id) (selected-window)))
+                 "RET" '(readability--open-article (ov-val (ov-at) 'rdb-article-id) (selected-window))
                  "o"   $fn-open-in-other-window
                  "O"   $fn-open-in-other-window
-                 "C-o" (lambda () (interactive)
-                         (let (($id (ov-val (ov-at) 'rdb-article-id))
-                               ($window (save-selected-window
-                                          (other-window 1) (selected-window))))
-                           (readability--open-article $id `(,$window . ,(selected-window))))))
+                 "C-o" '(let (($id (ov-val (ov-at) 'rdb-article-id))
+                              ($window (save-selected-window
+                                         (other-window 1) (selected-window))))
+                          (readability--open-article $id `(,$window . ,(selected-window)))))
                 (insert "\n")))
             (assoc-default 'bookmarks $articles)))
     (goto-char (point-min))
