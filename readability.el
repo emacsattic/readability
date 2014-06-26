@@ -195,12 +195,12 @@ start oauth authorization via your default browser."
   (with-temp-buffer
     (insert $string)
     (goto-char (point-min))
-    (while (re-search-forward "\&\\(\#x[^;]+\\);" nil t)
+    (while (re-search-forward "\&\#x\\([^;]+\\);" nil t)
       (let (($beg (match-beginning 0))
             ($end (match-end 0))
             ($hex (match-string 1)))
         (delete-region $beg $end)
-        (insert (format "%c" (read $hex)))))
+        (insert (format "%c" (string-to-number $hex 16)))))
     (buffer-string)))
 
 (defun readability-delete-token-and-file ()
