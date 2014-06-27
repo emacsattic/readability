@@ -192,15 +192,12 @@ start oauth authorization via your default browser."
                             (oauth-t-token-secret $token)))))))))
 
 (defun readability--decode-json-string ($string)
+  "Decode multi-byte characters"
   (with-temp-buffer
     (insert $string)
     (goto-char (point-min))
     (while (re-search-forward "\&\#x\\([^;]+\\);" nil t)
-      (let (($beg (match-beginning 0))
-            ($end (match-end 0))
-            ($hex (match-string 1)))
-        (delete-region $beg $end)
-        (insert (format "%c" (string-to-number $hex 16)))))
+      (replace-match (format "%c" (string-to-number (match-string 1) 16))))
     (buffer-string)))
 
 (defun readability-delete-token-and-file ()
@@ -247,6 +244,7 @@ start oauth authorization via your default browser."
    (ov-set (ov-insert "\uf0ca") ;; or \uf03a
            'face '(:family "FontAwesome" :height 1.8 :underline nil)
            'help-echo "Back to the list"
+           'pointer 'hand
            'after-string "  ")
    "RET" '(when (get-buffer readability-reading-list-buffer)
             (switch-to-buffer readability-reading-list-buffer))))
@@ -255,6 +253,7 @@ start oauth authorization via your default browser."
    (ov-set (ov-insert "\uf08e")
            'face '(:family "FontAwesome" :height 1.8 :underline nil)
            'help-echo "Open in default browser"
+           'pointer 'hand
            'after-string "  ")
    "RET" '(if readability-article-url
               (browse-url readability-article-url))))
@@ -262,7 +261,8 @@ start oauth authorization via your default browser."
   (ov-keymap
    (ov-set (ov-insert "\uf01e") ;; or \uf021
            'face '(:family "FontAwesome" :height 1.8)
-           'help-echo "Reload"
+           'help-echo "Reload reading list"
+           'pointer 'hand
            'after-string " ")
    "RET" '(progn
             ;; Delay to show "Reloading..." text
@@ -276,6 +276,7 @@ start oauth authorization via your default browser."
            'face '(:family "FontAwesome" :height 1.8)
            'rdb-info nil
            'help-echo "Infomation for this app"
+           'pointer 'hand
            'after-string " ")
    "RET" '(let* (($ov (ov-at))
                  ($is-open (ov-val $ov 'rdb-info)))
@@ -311,7 +312,7 @@ start oauth authorization via your default browser."
                    (with-temp-buffer
                      (insert $h1 $body)
                      (libxml-parse-html-region (point-min) (point-max))))
-                  ;; Fix mouse click bug: [Quit: "pasteboard doesn't contain valid data"]
+                  ;; Prevent mouse click bug: [Quit: "pasteboard doesn't contain valid data"]
                   (ov-set (ov-in 'mouse-face) 'mouse-face nil))
                 ;; Back to list
                 (funcall 'readability--icon-back-to-list)
@@ -478,6 +479,7 @@ To avoid this, use curl command with `start-process'"
                                    readability-icon-face-off
                                  readability-icon-face-on)
                          'after-string " "
+                         'pointer 'hand
                          'rdb-bookmark-id $bookmark-id
                          'rdb-fav (if (equal $favorite :json-false) nil t))
                  "RET" '(let* (($ov (ov-at))
@@ -489,6 +491,7 @@ To avoid this, use curl command with `start-process'"
                                    readability-icon-face-off
                                  readability-icon-face-on)
                          'after-string " "
+                         'pointer 'hand
                          'rdb-bookmark-id $bookmark-id
                          'rdb-archive (if (equal $archive :json-false) nil t))
                  "RET" '(let* (($ov (ov-at))
@@ -497,6 +500,7 @@ To avoid this, use curl command with `start-process'"
                 (ov-keymap
                  (ov-set (ov-insert (assoc-default 'title $article))
                          'face '(:underline t)
+                         'pointer 'hand
                          'rdb-article-id $article-id)
                  "RET" '(readability--open-article (ov-val (ov-at) 'rdb-article-id) (selected-window))
                  "o"   $fn-open-in-other-window
