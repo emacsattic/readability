@@ -48,7 +48,7 @@
 
 ;;; Code:
 
-(setq readability-info-for-reading-list
+(defvar readability-info-for-reading-list
       "readability.el ver 1.1.2
 `RET'  on an icon        : toggle boolean status of favorite or archive.
 `RET'  on a title        : open article in the current window.
@@ -59,7 +59,8 @@
 `F'    on article buffer : toggle fonts.
 `f,b,n,p'                : move cursor.
 `h,l,j,k'                : move cursor like vi.
-`Left Click' is mostly equal to pressing `RET'
+`Left Click'  is mostly equal to pressing `RET'
+`Right Click' on a title : open article in another window.
 ")
 
 (require 'cl-lib)
@@ -460,7 +461,13 @@ To avoid this, use curl command with `start-process'"
              (let (($id (ov-val (ov-at) 'rdb-article-id))
                    ($window (save-selected-window
                               (other-window 1) (selected-window))))
-               (readability--open-article $id $window)))))
+               (readability--open-article $id $window))))
+          ($fn-open-in-other-window-without-move
+           (lambda () (interactive)
+             (let (($id (ov-val (ov-at) 'rdb-article-id))
+                   ($window (save-selected-window
+                              (other-window 1) (selected-window))))
+               (readability--open-article $id `(,$window . ,(selected-window)))))))
       ;; Set menu icons
       (funcall 'readability--icon-refresh-reading-list)
       (funcall 'readability--icon-info-for-reading-list)
@@ -505,10 +512,10 @@ To avoid this, use curl command with `start-process'"
                  "RET" '(readability--open-article (ov-val (ov-at) 'rdb-article-id) (selected-window))
                  "o"   $fn-open-in-other-window
                  "O"   $fn-open-in-other-window
-                 "C-o" '(let (($id (ov-val (ov-at) 'rdb-article-id))
-                              ($window (save-selected-window
-                                         (other-window 1) (selected-window))))
-                          (readability--open-article $id `(,$window . ,(selected-window)))))
+                 "<mouse-3>" `(lambda (e) (interactive "e") ;; right click
+                                (mouse-set-point e) ;; move cursor to clicked point
+                                (funcall ',$fn-open-in-other-window-without-move))
+                 "C-o" $fn-open-in-other-window-without-move)
                 (insert "\n")))
             (assoc-default 'bookmarks $articles)))
     (goto-char (point-min))
