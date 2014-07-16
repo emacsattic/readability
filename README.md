@@ -89,6 +89,14 @@ First font is applied when open an article buffer.
 
 Note: fonts for multi-byte are not worked properly.
 
+### Open article synchronously
+
+```
+(setq readability-open-article-synchronously t)
+```
+
+If you couldn't open article try this option. I guess you using Windows version Emacs.
+
 ## Change Log
 
 #### ver 1.1.0

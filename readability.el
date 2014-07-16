@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
-;; Version: 1.1.2
+;; Version: 1.1.3
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
 ;; Created: Jun 24 2014
@@ -115,6 +115,8 @@ https://www.readability.com/developers/api/reader#idm301959944144")
 (defvar readability-key           "foko")
 (defvar readability-secret        "38YYwcbMJBh5K4rHxcaXKGgXAQZUYHKs")
 (defvar readability-access-token  nil)
+
+(defvar readability-open-article-synchronously nil)
 
 (defvar readability-icon-face-on
   '(:foreground "#ee0" :family "FontAwesome" :height 1.2))
@@ -290,11 +292,16 @@ start oauth authorization via your default browser."
 
 (defun readability--open-article ($article-id &optional $window)
   (readability--check-authentication)
-  (message "Start loading asynchronously...")
+  (if readability-open-article-synchronously
+      (message "Start loading asynchronously...")
+    (message "Start loading asynchronously..."))
   (let* (($raw)
          ($callback
           (lambda ()
-            (setq $raw (readability--json-buffer-serialize))
+            (setq $raw (decode-coding-string (buffer-string) 'utf-8))
+            (with-temp-buffer
+              (insert $raw)
+              (setq $raw (readability--json-buffer-serialize)))
             ;; Display article buffer with shr format
             (let (($buffer (get-buffer-create (format "Readability-%s" $article-id)))
                   ($h1 (format "<h1>%s</h1>" (readability--decode-json-string (assoc-default 'title $raw))))
@@ -311,7 +318,7 @@ start oauth authorization via your default browser."
                                    shr-width)))
                   (shr-insert-document
                    (with-temp-buffer
-                     (insert $h1 $body)
+                     (insert (format "%s %s" $h1 $body))
                      (libxml-parse-html-region (point-min) (point-max))))
                   ;; Prevent mouse click bug: [Quit: "pasteboard doesn't contain valid data"]
                   (ov-set (ov-in 'mouse-face) 'mouse-face nil))
@@ -362,29 +369,32 @@ start oauth authorization via your default browser."
      readability-access-token
      (concat readability-url-base (format "/api/rest/v1/articles/%s" $article-id))
      (lambda ($url)
-       (async-start
-        `(lambda ()
-           (setq vc-handled-backends nil)
-           (require 'url)
-           (url-gc-dead-buffers)
-           (let ((curl-args '("-s" ,(when oauth-curl-insecure "-k")
-                              "-X" ,url-request-method
-                              "-i" ,$url
-                              ,@(when oauth-post-vars-alist
-                                  (apply 'append
-                                         (mapcar
-                                          (lambda (pair)
-                                            (list "-d" (concat (car pair) "="
-                                                               (oauth-hexify-string (cdr pair)))))
-                                          oauth-post-vars-alist)))
-                              ,@(oauth-headers-to-curl url-request-extra-headers))))
-             (apply 'call-process "curl" nil t nil curl-args))
-           (url-mark-buffer-as-dead (current-buffer))
-           (buffer-string))
-        (lambda ($result)
-          (with-temp-buffer
-            (insert $result)
-            (funcall $callback))))))))
+       (if readability-open-article-synchronously
+           (with-current-buffer (url-retrieve-synchronously $url)
+             (funcall $callback))
+         (async-start
+          `(lambda ()
+             (setq vc-handled-backends nil)
+             (require 'url)
+             (url-gc-dead-buffers)
+             (let ((curl-args '("-s" ,(when oauth-curl-insecure "-k")
+                                "-X" ,url-request-method
+                                "-i" ,$url
+                                ,@(when oauth-post-vars-alist
+                                    (apply 'append
+                                           (mapcar
+                                            (lambda (pair)
+                                              (list "-d" (concat (car pair) "="
+                                                                 (oauth-hexify-string (cdr pair)))))
+                                            oauth-post-vars-alist)))
+                                ,@(oauth-headers-to-curl url-request-extra-headers))))
+               (apply 'call-process "curl" nil t nil curl-args))
+             (url-mark-buffer-as-dead (current-buffer))
+             (buffer-string))
+          (lambda ($result)
+            (with-temp-buffer
+              (insert $result)
+              (funcall $callback)))))))))
 
 (defun readability--oauth-post-async ($access-token $url &optional $vars-alist)
   "When url protocol is https, `url-retrieve' lose its asynchronous connectivity.
