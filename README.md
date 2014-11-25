@@ -2,7 +2,7 @@
 
 Get Readability's reading list, and read each article on Emacs.
 
-![readability.el](https://raw2.github.com/ShingoFukuyama/images/master/readability-el.gif)
+![readability.el](https://raw.githubusercontent.com/ShingoFukuyama/images/master/readability-el.gif)
 
 ## Require
 + Emacs 24.3
