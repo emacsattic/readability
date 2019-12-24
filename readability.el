@@ -1,4 +1,4 @@
-;;; readability.el --- Read articles from Readability in Emacs -*- coding: utf-8; lexical-binding: t -*-
+;;; readability.el --- Read articles from Readability. -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2014 by Shingo Fukuyama
 
@@ -6,8 +6,8 @@
 ;; Author: Shingo Fukuyama - http://fukuyama.co
 ;; URL: https://github.com/ShingoFukuyama/emacs-readability
 ;; Created: Jun 24 2014
-;; Keywords: readability oauth
-;; Package-Requires: ((oauth "1.04") (ov "1.0") (emacs "24.3"))
+;; Keywords: tools readability oauth
+;; Package-Requires: ((emacs "24.3") (oauth "1.04") (ov "1.0"))
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -81,12 +81,13 @@
   :prefix "readability-" :group 'applications)
 
 (defcustom readability-file-location (concat user-emacs-directory "readability-token")
-  "File path to store token"
+  "File path to store token."
   :group 'readability
   :type 'string)
 
 (defvar readability-parameters nil
-  "you can specify more parameters:
+  "Readability parameters.
+you can specify more parameters:
 https://www.readability.com/developers/api/reader#idm301959944144")
 (setq readability-parameters
       '(("archive"  . nil)  ;; "0", "1"
@@ -139,8 +140,9 @@ https://www.readability.com/developers/api/reader#idm301959944144")
     $map))
 
 (defun readability--oauth-url-retrieve ($access-token $url $callback)
-  "Like url retrieve, with url-request-extra-headers set to the necessary
-oauth headers. $CALLBACK will receive url as an argument."
+  "Oauth url retrieve with $ACCESS-TOKEN to $URL.
+Like url retrieve, with url-request-extra-headers set to the
+necessary oauth headers.  $CALLBACK will receive url as an argument."
   (let (($req (oauth-make-request
                $url
                (oauth-access-token-consumer-key $access-token)
@@ -159,13 +161,15 @@ oauth headers. $CALLBACK will receive url as an argument."
       (funcall $callback (oauth-request-url $req)))))
 
 (defun readability--set-line-height ()
+  "Set line height."
   (ov-set "\n"
           'face `(:height ,readability-line-height-for-article)
           'rdb-line-break t))
 
 (defun readability--init ()
-  "Get an access token from the token file. If it doesn't exist or fail to read from it,
-start oauth authorization via your default browser."
+  "Get an access token from the token file.
+If it doesn't exist or fail to read from it, start oauth
+authorization via your default browser."
   ;; Prevent to login with w3m or something for authorization
   (let ((browse-url-browser-function 'browse-url-default-browser))
     (when (file-exists-p readability-file-location)
@@ -195,7 +199,7 @@ start oauth authorization via your default browser."
                             (oauth-t-token-secret $token)))))))))
 
 (defun readability--decode-json-string ($string)
-  "Decode multi-byte characters"
+  "Decode multi-byte characters for $STRING."
   (with-temp-buffer
     (insert $string)
     (goto-char (point-min))
@@ -204,6 +208,7 @@ start oauth authorization via your default browser."
     (buffer-string)))
 
 (defun readability-delete-token-and-file ()
+  "Delete token and file."
   (interactive)
   (setq readability-access-token nil)
   (if (file-exists-p readability-file-location)
@@ -212,10 +217,12 @@ start oauth authorization via your default browser."
   (message "Successfully delete token and token file"))
 
 (defun readability--check-authentication ()
+  "Bheck authentication."
   (unless readability-access-token
     (readability--init)))
 
 (defun readability--json-buffer-serialize ()
+  "JSON buffer serialize."
   (goto-char (point-min))
   (save-excursion
     (while (re-search-forward "\r" nil t)
@@ -224,6 +231,7 @@ start oauth authorization via your default browser."
   (json-read-from-string (buffer-substring-no-properties (point-min) (point-max))))
 
 (defun readability--params-to-string ($params)
+  "Return string from $PARAMS."
   (let (($string "?"))
     (mapc (lambda ($x)
             (if (cdr $x)
@@ -232,6 +240,7 @@ start oauth authorization via your default browser."
     (substring $string 0 -1)))
 
 (defun readability--get-articles ()
+  "Get articles."
   (readability--check-authentication)
   (let ($raw)
     (with-current-buffer (oauth-url-retrieve
@@ -243,6 +252,7 @@ start oauth authorization via your default browser."
     $raw))
 
 (defun readability--icon-back-to-list ()
+  "Icon back to list."
   (ov-keymap
    (ov-set (ov-insert "\uf0ca") ;; or \uf03a
            'face '(:family "FontAwesome" :height 1.8 :underline nil)
@@ -251,7 +261,9 @@ start oauth authorization via your default browser."
            'after-string "  ")
    "RET" '(when (get-buffer readability-reading-list-buffer)
             (switch-to-buffer readability-reading-list-buffer))))
+
 (defun readability--icon-open-url ()
+  "Icon open url."
   (ov-keymap
    (ov-set (ov-insert "\uf08e")
            'face '(:family "FontAwesome" :height 1.8 :underline nil)
@@ -261,6 +273,7 @@ start oauth authorization via your default browser."
    "RET" '(if readability-article-url
               (browse-url readability-article-url))))
 (defun readability--icon-refresh-reading-list ()
+  "Icon refresh reading list."
   (ov-keymap
    (ov-set (ov-insert "\uf01e") ;; or \uf021
            'face '(:family "FontAwesome" :height 1.8)
@@ -274,6 +287,7 @@ start oauth authorization via your default browser."
                     'after-string (propertize " Reloading... \n"
                                               'face '(:height 1.8))))))
 (defun readability--icon-info-for-reading-list ()
+  "Icon info for reading list."
   (ov-keymap
    (ov-set (ov-insert "\uf05a") ;; or \uf129
            'face '(:family "FontAwesome" :height 1.8)
@@ -291,6 +305,7 @@ start oauth authorization via your default browser."
 
 
 (defun readability--open-article ($article-id &optional $window)
+  "Open article from $ARTICLE-ID in $WINDOW."
   (readability--check-authentication)
   (if readability-open-article-synchronously
       (message "Start loading asynchronously...")
@@ -397,8 +412,9 @@ start oauth authorization via your default browser."
               (funcall $callback)))))))))
 
 (defun readability--oauth-post-async ($access-token $url &optional $vars-alist)
-  "When url protocol is https, `url-retrieve' lose its asynchronous connectivity.
-To avoid this, use curl command with `start-process'"
+  "Oauth post via async with $ACCESS-TOKEN to $URL and $VARS-ALIST.
+When url protocol is https, `url-retrieve' lose its asynchronous connectivity.
+To avoid this, use curl command with `start-process'."
   (let (($req (oauth-make-request
                $url
                (oauth-access-token-consumer-key $access-token)
@@ -430,6 +446,7 @@ To avoid this, use curl command with `start-process'"
       (apply 'start-process "oauth-process" nil "curl" $curl-args))))
 
 (defun readability--toggle-favorite-at ($bookmark-id $ov)
+  "Toggle favorite at for %BOOKMARK-ID and $OV."
   (let* (($fav (ov-val $ov 'rdb-fav)))
     (readability--oauth-post-async readability-access-token
                                    (format "%s/api/rest/v1/bookmarks/%s"
@@ -443,6 +460,7 @@ To avoid this, use curl command with `start-process'"
             'rdb-fav (if $fav nil t))))
 
 (defun readability--toggle-archive-at ($bookmark-id $ov)
+  "Toggle archive at for $BOOKMARK-ID and $OV."
   (let (($archive (ov-val $ov 'rdb-archive)))
     (readability--oauth-post-async readability-access-token
                                    (format "%s/api/rest/v1/bookmarks/%s"
@@ -457,7 +475,7 @@ To avoid this, use curl command with `start-process'"
 
 ;;;###autoload
 (defun readability-get-reading-list ()
-  "Get a reading list and draw it on a buffer"
+  "Get a reading list and draw it on a buffer."
   (interactive)
   (readability--check-authentication)
   (message "Loading Reading List...")
